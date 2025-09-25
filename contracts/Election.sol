@@ -1,12 +1,11 @@
 //SPDX License Identifiew: MIT
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.0;
+pragma solidity ^0.8.20;
 
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 
-contract Election is  ReentrancyGuard {
-    address private owner;
+contract Election is Ownable, ReentrancyGuard {
     enum Phase {
         Created,
         Registration,
@@ -33,26 +32,22 @@ contract Election is  ReentrancyGuard {
     uint256 public candidatesCount;
 
     mapping (address => Voter) public voters;
-    uint256 public totalregistered;
-    uint256 public totalvotes;
+    uint256 public totalRegistered;
+    uint256 public totalVotes;
 
     event phaseChanged(Phase newPhase);
     event candidateAdded(uint256 id, string name);
     event voterRegistered(address voter);
     event voteCast(address voter, uint256 candidateId);
 
-    constructor() {
-        owner = msg.sender;
+    constructor() Ownable(msg.sender) ReentrancyGuard(){
         electionPhase = Phase.Created;
     }
     modifier inPhase(Phase _phase) {
         require(electionPhase == _phase, "wrong phase");
         _;
     }
-    modifier onlyOwner(){
-        require(msg.sender == owner, "Can only be called by owner");
-        _;
-    }
+    
 
     function startregistration() external onlyOwner inPhase(Phase.Created){
         electionPhase = Phase.Registration;
@@ -71,7 +66,7 @@ contract Election is  ReentrancyGuard {
         emit phaseChanged(electionPhase);
     }
 
-    function AddCandidate(string calldata _name) external onlyOwner{
+    function addCandidate(string calldata _name) external onlyOwner{
         require(bytes(_name).length>0,"Candidate name required");
         candidatesCount++;
         candidates[candidatesCount] = Candidate({
@@ -88,7 +83,7 @@ contract Election is  ReentrancyGuard {
             voters[_voter].isRegistered = true;
             voters[_voter].hasVoted = false;
 
-            totalregistered++;
+            totalRegistered++;
             emit voterRegistered(_voter);
         }
     }
@@ -102,10 +97,15 @@ contract Election is  ReentrancyGuard {
         voters[msg.sender].selectedCandidateId= _candidateId;
 
         candidates[_candidateId].voteCount++;
-        totalvotes++;
+        totalVotes++;
 
         emit voteCast(msg.sender, _candidateId);
 
+    }
+
+    function getCandidateVotes(uint _candidateId) external view returns (uint) {
+        require(_candidateId <= candidatesCount && candidates[_candidateId].exists, "Invalid candidate");
+        return candidates[_candidateId].voteCount;
     }
 
     
