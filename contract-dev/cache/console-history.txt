@@ -1,0 +1,40 @@
+await e.startVoting();
+await e.addCandidate("Carol")
+await e.addCandidate("Alice")
+await e.addCandidate("Bob")
+await e.startVoting();
+await e.startRegistration();
+await e.startVoting();
+await e.batchRegisterVoters([voterA.address, voterB.address]);
+await e.addCandidate("Carol");
+await e.addCandidate(await e.addCandidate("Bob");
+await e.startRegistration();
+const e = Election.attach("0x5FbDB2315678afecb367f032d93F642f64180aa3");
+const Election = await ethers.getContractFactory("Election");
+const [owner, voterA, voterB] = await ethers.getSigners();
+const [owner, voterA, voterB] = await ethers.getSigner();
+console.log(result)
+let result = await e.getResults()
+const results = await e.getResults()
+const e = Election.attach("0x5FbDB2315678afecb367f032d93F642f64180aa3")
+const Election = await ethers.getContractFactory("Election")
+const results = await e.getResults()
+.exit
+exit
+console.log(info.votes)
+console.log(info.registered)
+console.log(results)
+const results = await e.getResults()
+await e.startVoting()
+console.log(info.registered)
+console.log(info.name)
+console.log(info.phase)
+const info = await e.getElectionInfo()
+await e.batchRegisterVoters([voterA.address, voterB.address]);
+await e.addCandidate("Carol")
+await e.addCandidate("Bob")
+await e.addCandidate("Alice")
+await e.startRegistration();
+const e = Election.attach("0x5FbDB2315678afecb367f032d93F642f64180aa3")
+const Election = await ethers.getContractFactory("Election")
+const [owner, voterA, voterB] = await ethers.getSigners()
