@@ -1,25 +1,29 @@
 import { useState, useCallback, useEffect, useRef } from "react";
 import { BrowserProvider, JsonRpcProvider, Contract } from "ethers";
-import { CONTRACT_ADDRESS, CONTRACT_ABI, Phase } from "../constants/contract";
+import {
+  FACTORY_ADDRESS, FACTORY_ABI,
+  CONTRACT_ABI, Phase, PHASE_LABELS,
+} from "../constants/contract";
 
-// Colours assigned to candidates in order
 const CANDIDATE_COLORS = ["#00b4ff", "#00ffb2", "#b47aff", "#ff4d6d", "#ffd700"];
 
+const phaseToStatus = (phase) => {
+  if (phase === Phase.Voting) return "ACTIVE";
+  if (phase >= Phase.Ended) return "ENDED";
+  return "UPCOMING";
+};
+
 export function useElection() {
-  const [info, setInfo] = useState(null);
-  const [candidates, setCandidates] = useState([]);
+  const [elections, setElections] = useState([]);
   const [activity, setActivity] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
-  // Keep a stable ref to the read-only provider so event listeners survive re-renders
   const providerRef = useRef(null);
-  const contractRef = useRef(null);
 
-  // ── Provider helpers ──────────────────────────────────────────────────────
+  // ── Read-only provider ────────────────────────────────────────────────────
 
-  /** Read-only provider — for fetching data without a wallet */
-  const getReadProvider = useCallback(() => {
+  const getProvider = useCallback(() => {
     if (!providerRef.current) {
       providerRef.current = new JsonRpcProvider(
         import.meta.env.VITE_RPC_URL ?? "http://127.0.0.1:8545"
@@ -28,177 +32,171 @@ export function useElection() {
     return providerRef.current;
   }, []);
 
-  /** Read-only contract instance */
-  const getReadContract = useCallback(() => {
-    if (!contractRef.current) {
-      contractRef.current = new Contract(
-        CONTRACT_ADDRESS,
-        CONTRACT_ABI,
-        getReadProvider()
-      );
-    }
-    return contractRef.current;
-  }, [getReadProvider]);
+  const getElectionContract = useCallback((address) => {
+    return new Contract(address, CONTRACT_ABI, getProvider());
+  }, [getProvider]);
 
-  /** Write contract instance — requires connected wallet (MetaMask signer) */
-  const getWriteContract = useCallback(async () => {
-    if (!window.ethereum) throw new Error("No wallet detected");
-    const provider = new BrowserProvider(window.ethereum);
-    const signer = await provider.getSigner();
-    return new Contract(CONTRACT_ADDRESS, CONTRACT_ABI, signer);
-  }, []);
+  // ── Fetch all elections from factory ─────────────────────────────────────
 
-  // ── Fetch election data ───────────────────────────────────────────────────
-
-  const fetchElectionData = useCallback(async () => {
+  const fetchElections = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      const contract = getReadContract();
+      const provider = getProvider();
+      const factory = new Contract(FACTORY_ADDRESS, FACTORY_ABI, provider);
+      const addrs = await factory.allElections();
 
-      // Fetch info and results in parallel
-      const [rawInfo, rawResults] = await Promise.all([
-        contract.getElectionInfo(),
-        contract.getResults(),
-      ]);
+      if (addrs.length === 0) {
+        setElections([]);
+        return;
+      }
 
-      setInfo({
-        name: rawInfo.name,
-        phase: Number(rawInfo.phase),
-        registered: Number(rawInfo.registered),
-        totalVotes: Number(rawInfo.votes),
-        startTime: Number(rawInfo.start),
-        endTime: Number(rawInfo.end),
-      });
+      // Fetch info + candidates for every election in parallel
+      const results = await Promise.all(
+        addrs.map(async (addr) => {
+          try {
+            const ec = getElectionContract(addr);
+            const [info, rawCandidates] = await Promise.all([
+              ec.getElectionInfo(),
+              ec.getResults(),
+            ]);
 
-      setCandidates(
-        rawResults.map((c, idx) => ({
-          id: Number(c.id),
-          name: c.name,
-          votes: Number(c.voteCount),
-          color: CANDIDATE_COLORS[idx % CANDIDATE_COLORS.length],
-        }))
+            const phase = Number(info.phase);
+            const candidates = rawCandidates.map((c, idx) => ({
+              id: String(Number(c.id)),
+              name: c.name,
+              party: "",
+              votes: Number(c.voteCount),
+              color: CANDIDATE_COLORS[idx % CANDIDATE_COLORS.length],
+            }));
+
+            return {
+              address: addr,
+              id: addr,
+              title: info.name,
+              phase,
+              status: phaseToStatus(phase),
+              endsIn: phase === Phase.Voting
+                ? "Live now"
+                : PHASE_LABELS[phase],
+              totalVotes: Number(info.votes),
+              candidates,
+            };
+          } catch {
+            return null; // skip elections that fail to load
+          }
+        })
       );
+
+      // Filter nulls, show newest first, only show Voting + Registration
+      const valid = results
+        .filter((e) => e !== null)
+        .reverse();
+
+      setElections(valid);
     } catch (err) {
-      const msg = err instanceof Error ? err.message : "Failed to load election data";
-      setError(msg);
-      console.error("fetchElectionData:", err);
+      setError(err?.message ?? "Failed to load elections");
     } finally {
       setLoading(false);
     }
-  }, [getReadContract]);
+  }, [getProvider, getElectionContract]);
 
-  // ── Check if a specific address has voted ────────────────────────────────
+  // ── Check if a wallet has voted in a specific election ────────────────────
 
   const hasAddressVoted = useCallback(
-    async (address) => {
+    async (electionAddress, walletAddress) => {
       try {
-        const contract = getReadContract();
-        const voter = await contract.voters(address);
+        const ec = getElectionContract(electionAddress);
+        const voter = await ec.voters(walletAddress);
         return voter.hasVoted;
       } catch {
         return false;
       }
     },
-    [getReadContract]
+    [getElectionContract]
   );
 
-  // ── Cast a vote ───────────────────────────────────────────────────────────
+  // ── Cast a vote on a specific election ────────────────────────────────────
 
   const castVote = useCallback(
-    async (candidateId) => {
-      const contract = await getWriteContract();
-      const tx = await contract.vote(candidateId);
-      const receipt = await tx.wait(); // wait for 1 confirmation
-      await fetchElectionData(); // refresh UI after vote
+    async (electionAddress, candidateId) => {
+      if (!window.ethereum) throw new Error("No wallet detected");
+      const provider = new BrowserProvider(window.ethereum);
+      const signer = await provider.getSigner();
+      const ec = new Contract(electionAddress, CONTRACT_ABI, signer);
+      const tx = await ec.vote(candidateId);
+      const receipt = await tx.wait();
+      await fetchElections(); // refresh list after vote
       return receipt.hash;
     },
-    [getWriteContract, fetchElectionData]
+    [fetchElections]
   );
 
-  // ── Listen to on-chain events for the activity feed ───────────────────────
+  // ── Activity feed — listen to VoteCast across all elections ──────────────
 
   const startEventListeners = useCallback(() => {
-    const contract = getReadContract();
+    if (elections.length === 0) return () => {};
 
-    const formatTime = () => new Date().toLocaleTimeString();
+    const cleanups = [];
 
-    const onVoteCast = (_voter, candidateId, event) => {
-      setActivity((prev) => [
-        {
-          event: "VoteCast",
-          blockNumber: event.log.blockNumber,
-          hash: `${event.log.transactionHash.slice(0, 6)}…${event.log.transactionHash.slice(-4)}`,
-          time: formatTime(),
-        },
-        ...prev.slice(0, 19), // keep last 20 events
-      ]);
-      // Also bump the local vote count optimistically
-      setCandidates((prev) =>
-        prev.map((c) =>
-          c.id === Number(candidateId) ? { ...c, votes: c.votes + 1 } : c
-        )
-      );
-    };
+    for (const el of elections) {
+      if (el.phase !== Phase.Voting) continue; // only listen to live elections
 
-    const onPhaseChanged = () => {
-      fetchElectionData(); // full refresh on phase change
-    };
+      const ec = getElectionContract(el.address);
+      const formatTime = () => new Date().toLocaleTimeString();
 
-    contract.on("VoteCast", onVoteCast);
-    contract.on("PhaseChanged", onPhaseChanged);
+      const onVoteCast = (_voter, _candidateId, event) => {
+        setActivity((prev) => [
+          {
+            event: "VoteCast",
+            blockNumber: event.log.blockNumber,
+            hash: `${event.log.transactionHash.slice(0, 6)}…${event.log.transactionHash.slice(-4)}`,
+            time: formatTime(),
+          },
+          ...prev.slice(0, 19),
+        ]);
 
-    return () => {
-      contract.off("VoteCast", onVoteCast);
-      contract.off("PhaseChanged", onPhaseChanged);
-    };
-  }, [getReadContract, fetchElectionData]);
+        // Optimistically bump that candidate's count in state
+        setElections((prev) =>
+          prev.map((e) =>
+            e.address !== el.address ? e : {
+              ...e,
+              totalVotes: e.totalVotes + 1,
+              candidates: e.candidates.map((c) =>
+                c.id === String(Number(_candidateId))
+                  ? { ...c, votes: c.votes + 1 }
+                  : c
+              ),
+            }
+          )
+        );
+      };
 
-  // ── Fetch recent past events for the activity feed ────────────────────────
-
-  const fetchPastEvents = useCallback(async () => {
-    try {
-      const contract = getReadContract();
-      const provider = getReadProvider();
-      const latest = await provider.getBlockNumber();
-      const fromBlock = Math.max(0, latest - 1000); // last ~1000 blocks
-
-      const filter = contract.filters.VoteCast();
-      const logs = await contract.queryFilter(filter, fromBlock, latest);
-
-      const events = logs
-        .slice(-20)
-        .reverse()
-        .map((log) => ({
-          event: "VoteCast",
-          blockNumber: log.blockNumber,
-          hash: `${log.transactionHash.slice(0, 6)}…${log.transactionHash.slice(-4)}`,
-          time: `Block #${log.blockNumber}`,
-        }));
-
-      setActivity(events);
-    } catch (err) {
-      console.warn("fetchPastEvents:", err);
+      ec.on("VoteCast", onVoteCast);
+      cleanups.push(() => ec.off("VoteCast", onVoteCast));
     }
-  }, [getReadContract, getReadProvider]);
 
-  // ── Bootstrap on mount ────────────────────────────────────────────────────
+    return () => cleanups.forEach((fn) => fn());
+  }, [elections, getElectionContract]);
+
+  // ── Bootstrap ─────────────────────────────────────────────────────────────
 
   useEffect(() => {
-    fetchElectionData();
-    fetchPastEvents();
+    fetchElections();
+  }, [fetchElections]);
+
+  useEffect(() => {
     const cleanup = startEventListeners();
     return cleanup;
-  }, [fetchElectionData, fetchPastEvents, startEventListeners]);
+  }, [startEventListeners]);
 
   return {
-    info,
-    candidates,
+    elections,
     activity,
     loading,
     error,
     castVote,
     hasAddressVoted,
-    fetchElectionData,
+    fetchElections,
   };
 }

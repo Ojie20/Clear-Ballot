@@ -374,6 +374,45 @@
       "artifacts": [
         "StorageSlot"
       ]
+    },
+    "C:\\Users\\USER\\Desktop\\Clear Ballot\\Clear-Ballot\\contract-dev\\contracts\\ElectionFactory.sol": {
+      "lastModificationDate": 1773606587015,
+      "contentHash": "e5687adcf11bc525c5d90a8c834ba08f",
+      "sourceName": "contracts/ElectionFactory.sol",
+      "solcConfig": {
+        "version": "0.8.28",
+        "settings": {
+          "evmVersion": "paris",
+          "optimizer": {
+            "enabled": false,
+            "runs": 200
+          },
+          "outputSelection": {
+            "*": {
+              "*": [
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          }
+        }
+      },
+      "imports": [
+        "./Election.sol",
+        "@openzeppelin/contracts/access/Ownable.sol"
+      ],
+      "versionPragmas": [
+        "^0.8.28"
+      ],
+      "artifacts": [
+        "ElectionFactory"
+      ]
     }
   }
 }

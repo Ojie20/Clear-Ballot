@@ -6,11 +6,54 @@ export const CONTRACT_ADDRESS =
   import.meta.env.VITE_CONTRACT_ADDRESS ??
   "0x5FbDB2315678afecb367f032d93F642f64180aa3";
 
+export const FACTORY_ADDRESS =
+  (import.meta.env.VITE_FACTORY_ADDRESS) ??
+  "0x5FbDB2315678afecb367f032d93F642f64180aa3"; // default 2nd Hardhat deploy
+
 // Network the contract is deployed on
 export const CHAIN_ID = Number(import.meta.env.VITE_CHAIN_ID ?? 31337); // 31337 = hardhat local
 
+export const FACTORY_ABI = [
+  "function owner() view returns (address)",
+  "function createElection(string memory _name) external returns (address)",
+  "function allElections() external view returns (address[])",
+  "function getElectionCount() external view returns (uint256)",
+  "function getElection(uint256 index) external view returns (address)",
+  "event ElectionCreated(address indexed electionAddress, string name, address indexed creator, uint256 index)",
+];
+
+// Election ABI extended with admin-only write functions
+export const ELECTION_ADMIN_ABI = [
+  // ── Read ────────────────────────────────────────────────────────────────
+  "function getElectionInfo() view returns (string name, uint8 phase, uint256 registered, uint256 votes, uint256 start, uint256 end)",
+  "function getResults() view returns (tuple(uint256 id, string name, uint256 voteCount)[])",
+  "function getWinner() view returns (tuple(uint256 id, string name, uint256 voteCount))",
+  "function candidatesCount() view returns (uint256)",
+  "function totalRegistered() view returns (uint256)",
+  "function totalVotes() view returns (uint256)",
+  "function isTie() view returns (bool)",
+  "function owner() view returns (address)",
+ 
+  // ── Phase control ────────────────────────────────────────────────────────
+  "function startRegistration() external",
+  "function startVoting() external",
+  "function endVoting() external",
+  "function startTally() external",
+ 
+  // ── Candidate & voter management ─────────────────────────────────────────
+  "function addCandidate(string calldata _name) external",
+  "function registerVoter(address _voter) external",
+  "function batchRegisterVoters(address[] calldata _voters) external",
+ 
+  // ── Events ────────────────────────────────────────────────────────────────
+  "event PhaseChanged(uint8 newPhase)",
+  "event CandidateAdded(uint256 indexed id, string name)",
+  "event VoterRegistered(address indexed voter)",
+  "event WinnerDeclared(uint256 indexed candidateId, string name, uint256 voteCount)",
+  "event TieDeclared(uint256 topVoteCount)",
+];
+
 // Minimal ABI — only the functions and events the frontend needs.
-// Full ABI is in Election.json if you prefer to import that directly.
 export const CONTRACT_ABI = [
   // Read functions
   "function electionName() view returns (string)",

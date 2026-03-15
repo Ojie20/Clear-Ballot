@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from "react";
 import { useWallet }   from "../hooks/useWallet";
 import { useElection } from "../hooks/useElection";
-import { Phase, PHASE_LABELS } from "../constants/contract";
+import { Phase }       from "../constants/contract";
 
 import Navbar        from "../components/layout/Navbar";
 import ElectionsList from "../components/elections/ElectionsList";
@@ -17,105 +17,82 @@ export default function VoterInterface() {
   } = useWallet();
 
   const {
-    info, candidates, activity,
+    elections, activity,
     loading, error,
-    castVote, hasAddressVoted, fetchElectionData,
+    castVote, hasAddressVoted, fetchElections,
   } = useElection();
 
-  const [view, setView]           = useState("elections");
-  const [selected, setSelected]   = useState(null);
-  const [showZKP, setShowZKP]     = useState(false);
-  const [txHash, setTxHash]       = useState("");
-  const [votedFor, setVotedFor]   = useState("");
-  const [hasVoted, setHasVoted]   = useState(false);
-  const [castError, setCastError] = useState(null);
+  const [view,        setView]        = useState("elections");
+  const [activeElection, setActiveElection] = useState(null); // full election object
+  const [selected,    setSelected]    = useState(null);       // candidate id string
+  const [showZKP,     setShowZKP]     = useState(false);
+  const [txHash,      setTxHash]      = useState("");
+  const [votedFor,    setVotedFor]    = useState("");
+  const [castError,   setCastError]   = useState(null);
+
+  // hasVoted is per-election: { [electionAddress]: boolean }
+  const [hasVoted, setHasVoted] = useState({});
 
   const voteSnapshot = useRef(null);
 
-  // ── Check if connected wallet has already voted ───────────────────────────
+  // ── When wallet connects, check voted status across all live elections ────
   useEffect(() => {
-    if (!wallet) { setHasVoted(false); return; }
-    hasAddressVoted(wallet).then(setHasVoted);
-  }, [wallet, hasAddressVoted]);
-
-  // ── Build the single "election" object the child components expect ────────
-  // The contract holds one election per deployment, so we map it to the
-  // same shape the existing ElectionsList / VoteCasting components use.
-  const election = info
-    ? {
-        id:         "onchain",
-        title:      info.name,
-        status:     info.phase === Phase.Voting ? "ACTIVE" : "UPCOMING",
-        endsIn:     info.phase === Phase.Voting ? "Live now" : PHASE_LABELS[info.phase],
-        totalVotes: info.totalVotes,
-        candidates: candidates.map((c) => ({
-          id:    String(c.id),
-          name:  c.name,
-          party: "",
-          votes: c.votes,
-          color: c.color,
-        })),
-      }
-    : null;
+    if (!wallet || elections.length === 0) return;
+    const liveElections = elections.filter((e) => e.phase === Phase.Voting);
+    Promise.all(
+      liveElections.map(async (el) => {
+        const voted = await hasAddressVoted(el.address, wallet);
+        return [el.address, voted];
+      })
+    ).then((pairs) => {
+      setHasVoted(Object.fromEntries(pairs));
+    });
+  }, [wallet, elections, hasAddressVoted]);
 
   // ── Handlers ──────────────────────────────────────────────────────────────
 
-  const handleSelectElection = () => {
-    if (!election || !wallet) return;
+  const handleSelectElection = (election) => {
+    if (!wallet) return;
+    setActiveElection(election);
     setSelected(null);
     setCastError(null);
     setView("vote");
   };
 
   const handleSubmitVote = () => {
-    if (!selected || !election) return;
-    const candidate = election.candidates.find((c) => c.id === selected);
-    voteSnapshot.current = { election, candidate };
+    if (!selected || !activeElection) return;
+    const candidate = activeElection.candidates.find((c) => c.id === selected);
+    voteSnapshot.current = { election: activeElection, candidate };
     setShowZKP(true);
   };
 
   const handleZKPDone = async () => {
-    const { candidate } = voteSnapshot.current ?? {};
-    if (!candidate) return;
+    const { election, candidate } = voteSnapshot.current ?? {};
+    if (!election || !candidate) return;
 
     setShowZKP(false);
     setCastError(null);
 
     try {
-      const hash = await castVote(Number(candidate.id));
+      const hash = await castVote(election.address, Number(candidate.id));
       setTxHash(hash);
       setVotedFor(candidate.name);
-      setHasVoted(true);
+      // Mark this election as voted in local state
+      setHasVoted((prev) => ({ ...prev, [election.address]: true }));
       setView("success");
     } catch (err) {
-      const msg =
-        err?.reason ??
-        err?.message ??
-        "Transaction failed. Check MetaMask for details.";
-      setCastError(msg);
+      setCastError(
+        err?.reason ?? err?.message ?? "Transaction failed. Check MetaMask for details."
+      );
     }
   };
 
   const handleDisconnect = () => {
     disconnectWallet();
     setView("elections");
+    setActiveElection(null);
+    setHasVoted({});
   };
-
-  // ── Wrong network banner ──────────────────────────────────────────────────
-  const WrongNetworkBanner = () =>
-    wallet && !chainOk ? (
-      <div style={{
-        background: "rgba(255,77,109,0.1)",
-        border: "1px solid rgba(255,77,109,0.4)",
-        color: "#ff4d6d",
-        textAlign: "center",
-        padding: "10px",
-        fontSize: 13,
-        fontFamily: "var(--font-mono)",
-      }}>
-        ⚠ Wrong network. Please switch to the correct network in MetaMask.
-      </div>
-    ) : null;
 
   // ── Render ────────────────────────────────────────────────────────────────
   return (
@@ -153,7 +130,18 @@ export default function VoterInterface() {
         shortAddr={shortAddr}
       />
 
-      <WrongNetworkBanner />
+      {/* Wrong network banner */}
+      {wallet && !chainOk && (
+        <div style={{
+          background: "rgba(255,77,109,0.1)",
+          border: "1px solid rgba(255,77,109,0.4)",
+          color: "#ff4d6d", textAlign: "center",
+          padding: "10px", fontSize: 13,
+          fontFamily: "var(--font-mono)",
+        }}>
+          ⚠ Wrong network — please switch to the correct network in MetaMask.
+        </div>
+      )}
 
       {showZKP && <ZKPOverlay onDone={handleZKPDone} />}
 
@@ -162,44 +150,44 @@ export default function VoterInterface() {
         maxWidth: 900, margin: "0 auto", padding: "40px 24px",
       }}>
 
-        {/* Loading state */}
-        {loading && view === "elections" && (
-          <div style={{ textAlign: "center", color: "var(--muted)", padding: 60 }}>
-            Loading election data…
-          </div>
+        {/* ── Elections list ── */}
+        {view === "elections" && (
+          <>
+            {loading && (
+              <div style={{ textAlign: "center", color: "var(--muted)", padding: 60 }}>
+                Loading elections…
+              </div>
+            )}
+
+            {error && (
+              <div style={{
+                padding: 16, marginBottom: 24,
+                background: "rgba(255,77,109,0.08)",
+                border: "1px solid rgba(255,77,109,0.3)",
+                borderRadius: 10, color: "#ff4d6d", fontSize: 13,
+              }}>
+                ⚠ {error} —{" "}
+                <span onClick={fetchElections}
+                  style={{ cursor: "pointer", textDecoration: "underline" }}>
+                  retry
+                </span>
+              </div>
+            )}
+
+            {!loading && (
+              <ElectionsList
+                elections={elections}
+                wallet={wallet}
+                hasVoted={hasVoted}
+                onSelect={handleSelectElection}
+                onConnect={connectWallet}
+              />
+            )}
+          </>
         )}
 
-        {/* Contract error */}
-        {error && (
-          <div style={{
-            padding: 16, marginBottom: 24,
-            background: "rgba(255,77,109,0.08)",
-            border: "1px solid rgba(255,77,109,0.3)",
-            borderRadius: 10, color: "#ff4d6d", fontSize: 13,
-          }}>
-            ⚠ {error} —{" "}
-            <span
-              onClick={fetchElectionData}
-              style={{ cursor: "pointer", textDecoration: "underline" }}
-            >
-              retry
-            </span>
-          </div>
-        )}
-
-        {/* Elections view */}
-        {view === "elections" && !loading && election && (
-          <ElectionsList
-            elections={[election]}
-            wallet={wallet}
-            hasVoted={{ onchain: hasVoted }}
-            onSelect={handleSelectElection}
-            onConnect={connectWallet}
-          />
-        )}
-
-        {/* Vote casting view */}
-        {view === "vote" && election && (
+        {/* ── Vote casting ── */}
+        {view === "vote" && activeElection && (
           <>
             {castError && (
               <div style={{
@@ -212,26 +200,26 @@ export default function VoterInterface() {
               </div>
             )}
             <VoteCasting
-              election={election}
+              election={activeElection}
               selected={selected}
-              hasVoted={{ onchain: hasVoted }}
+              hasVoted={hasVoted}
               onSelect={setSelected}
               onSubmit={handleSubmitVote}
-              onBack={() => setView("elections")}
+              onBack={() => { setView("elections"); setActiveElection(null); }}
             />
           </>
         )}
 
-        {/* Success view */}
+        {/* ── Success ── */}
         {view === "success" && (
           <SuccessScreen
             txHash={txHash}
             candidate={votedFor}
-            onBack={() => setView("elections")}
+            onBack={() => { setView("elections"); setActiveElection(null); }}
           />
         )}
 
-        {/* Activity view */}
+        {/* ── Activity feed ── */}
         {view === "activity" && (
           <ActivityFeed events={activity} />
         )}
