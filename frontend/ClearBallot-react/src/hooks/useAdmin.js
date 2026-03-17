@@ -36,9 +36,9 @@ export function useAdmin() {
     try {
       const signer = await getSigner();
       const factory = new Contract(FACTORY_ADDRESS, FACTORY_ABI, signer);
-      const owner = await factory.owner();  
+      const owner = await factory.owner();
       setIsOwner(
-        getAddress(walletAddress).toLowerCase() == getAddress(owner).toLowerCase()
+        getAddress(walletAddress).toLowerCase() === getAddress(owner).toLowerCase()
       );
     } catch {
       setIsOwner(false);
@@ -180,6 +180,19 @@ export function useAdmin() {
     });
   }, [run]);
 
+
+  // ── Merkle root ───────────────────────────────────────────────────────────
+  // Called by admin after registration closes, before voting starts.
+  // The frontend builds the Merkle tree from voter secrets off-chain
+  // and submits the root here so the ZKP circuit can verify membership.
+
+  const setMerkleRoot = useCallback(async (addr, root) => {
+    return run(async () => {
+      const ec = await getElectionContract(addr);
+      await (await ec.setMerkleRoot(root)).wait();
+    });
+  }, [run]);
+
   // ── Results ───────────────────────────────────────────────────────────────
 
   const fetchResults = useCallback(async (addr) => {
@@ -212,6 +225,7 @@ export function useAdmin() {
     startRegistration, startVoting, endVoting, startTally,
     addCandidate,
     registerVoter, batchRegisterVoters,
+    setMerkleRoot,
     fetchResults, fetchWinner,
   };
 }

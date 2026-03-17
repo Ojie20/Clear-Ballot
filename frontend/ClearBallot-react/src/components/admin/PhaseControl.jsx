@@ -26,7 +26,7 @@ export default function PhaseControl({ currentPhase, txPending, onAdvance }) {
       </div>
 
       {/* Phase stepper */}
-      <div style={{ display: "flex", alignItems: "center", gap: 0, marginBottom: 28, flexWrap: "wrap", gap: 4 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 0, marginBottom: 28, flexWrap: "wrap"}}>
         {PHASE_FLOW.map((step, i) => {
           const done    = step.phase < currentPhase;
           const active  = step.phase === currentPhase;

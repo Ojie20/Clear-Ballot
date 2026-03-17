@@ -1,3 +1,13 @@
+console.log(info)
+let info =await election.getElectionInfo
+await console.log(election.getElectionInfo)
+console.log(phase)
+let phase = await election.electionPhase()
+await election.electi
+await election.electionName()
+const [owner, voter1, voter2] = await ethers.getSigners()
+const election = await Election.attach("0xCafac3dD18aC6c6e92c921884f9E4176737C052c")
+let Election = await ethers.getContractFactory("Election")
 await factory.allElections();
 const factory = await ethers.getContractAt("ElectionFactory", "0x5FbDB2315678afecb367f032d93F642f64180aa3");
 await e.startVoting();

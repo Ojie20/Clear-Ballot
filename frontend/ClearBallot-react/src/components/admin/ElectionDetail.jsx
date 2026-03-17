@@ -4,6 +4,7 @@ import PhaseControl    from "./PhaseControl";
 import CandidateManager from "./CandidateManager";
 import VoterManager    from "./VoterManager";
 import ResultsPanel    from "./ResultsPanel";
+import MerkleRootPanel from "./MerkleRootPanel";
 
 const PHASE_COLORS = {
   [Phase.Created]:      "#666",
@@ -13,7 +14,7 @@ const PHASE_COLORS = {
   [Phase.Tallied]:      "#b47aff",
 };
 
-const TABS = ["Phase", "Candidates", "Voters", "Results"];
+const TABS = ["Phase", "Candidates", "Voters", "Merkle Root", "Results"];
 
 export default function ElectionDetail({
   election, txPending, error,
@@ -21,6 +22,7 @@ export default function ElectionDetail({
   onAddCandidate,
   onRegisterVoter, onBatchRegisterVoters,
   onFetchResults, onFetchWinner,
+  onSetMerkleRoot,
   onBack,
 }) {
   const [tab, setTab] = useState("Phase");
@@ -150,6 +152,13 @@ export default function ElectionDetail({
             txPending={txPending}
             onRegister={onRegisterVoter}
             onBatchRegister={onBatchRegisterVoters}
+          />
+        )}
+        {tab === "Merkle Root" && (
+          <MerkleRootPanel
+            election={election}
+            txPending={txPending}
+            onSetMerkleRoot={onSetMerkleRoot}
           />
         )}
         {tab === "Results" && (

@@ -43,7 +43,7 @@ export default function Navbar({ view, setView, wallet, connecting, onConnect, o
             letterSpacing: "0.06em",
           }}
         >
-          VOTECHAIN
+          CLEAR BALLOT
         </span>
       </div>
 

@@ -25,6 +25,7 @@ export const FACTORY_ABI = [
 // Election ABI extended with admin-only write functions
 export const ELECTION_ADMIN_ABI = [
   // ── Read ────────────────────────────────────────────────────────────────
+  "function merkleRoot() view returns (bytes32)",
   "function getElectionInfo() view returns (string name, uint8 phase, uint256 registered, uint256 votes, uint256 start, uint256 end)",
   "function getResults() view returns (tuple(uint256 id, string name, uint256 voteCount)[])",
   "function getWinner() view returns (tuple(uint256 id, string name, uint256 voteCount))",
@@ -36,6 +37,7 @@ export const ELECTION_ADMIN_ABI = [
  
   // ── Phase control ────────────────────────────────────────────────────────
   "function startRegistration() external",
+  "function setMerkleRoot(bytes32 _root) external",
   "function startVoting() external",
   "function endVoting() external",
   "function startTally() external",
@@ -71,8 +73,10 @@ export const CONTRACT_ABI = [
   "function voters(address) view returns (bool isRegistered, bool hasVoted, uint256 selectedCandidateId)",
 
   // Write functions
+  "function merkleRoot() view returns (bytes32)",
+  "function setMerkleRoot(bytes32 _merkleRoot) external",
   "function vote(uint256 candidateId)",
-  "function submitVoteWithProof(uint256 candidateId, bytes32 nullifier, bytes calldata zkProof)",
+  "function submitVoteWithProof(uint256 _candidateId, bytes32 _nullifier, uint256[2] calldata a, uint256[2][2] calldata b, uint256[2] calldata c) external",
 
   // Events
   "event VoteCast(address indexed voter, uint256 indexed candidateId)",

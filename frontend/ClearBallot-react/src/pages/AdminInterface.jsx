@@ -30,7 +30,7 @@ function CreateModal({ onClose, onCreate, txPending }) {
         background: "var(--surface)",
         border: "1px solid var(--border)",
         borderRadius: 16, padding: 32,
-        width: "100%", maxWidth: 440,
+        width: "100%", maxWidth: 1000,
         animation: "fadeUp 0.3s ease both",
       }}>
         <div style={{
@@ -104,6 +104,7 @@ export default function AdminInterface() {
     checkOwnership,
     fetchElections,
     createElection,
+    setMerkleRoot,
     startRegistration, startVoting, endVoting, startTally,
     addCandidate,
     registerVoter, batchRegisterVoters,
@@ -186,7 +187,7 @@ export default function AdminInterface() {
             <circle cx="14" cy="14" r="3" fill="#b47aff"/>
           </svg>
           <span style={{ fontFamily: "var(--font-head)", fontWeight: 800, fontSize: 15, letterSpacing: "0.06em" }}>
-            VOTECHAIN
+            CLEAR BALLOT
           </span>
           <span style={{
             padding: "2px 8px", borderRadius: 4,
@@ -332,6 +333,7 @@ export default function AdminInterface() {
             onAddCandidate={addCandidate}
             onRegisterVoter={registerVoter}
             onBatchRegisterVoters={batchRegisterVoters}
+            onSetMerkleRoot={setMerkleRoot}
             onFetchResults={fetchResults}
             onFetchWinner={fetchWinner}
             onBack={() => setSelected(null)}

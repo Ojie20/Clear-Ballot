@@ -21,6 +21,7 @@ contract ElectionFactory is Ownable {
     // ── State ─────────────────────────────────────────────────────────────────
 
     address[] private _elections;
+    address public verifierAddress;
 
     // ── Events ────────────────────────────────────────────────────────────────
 
@@ -33,7 +34,10 @@ contract ElectionFactory is Ownable {
 
     // ── Constructor ───────────────────────────────────────────────────────────
 
-    constructor() Ownable(msg.sender) {}
+    constructor(address _verifierAddress) Ownable(msg.sender) {
+        require(_verifierAddress != address(0), "Verifier address required");
+        verifierAddress = _verifierAddress;
+    }
 
     // ── Factory function ──────────────────────────────────────────────────────
 
@@ -51,7 +55,7 @@ contract ElectionFactory is Ownable {
     {
         require(bytes(_name).length > 0, "Election name required");
 
-        Election e = new Election(_name);
+        Election e = new Election(_name, verifierAddress);
 
         // Transfer ownership to the caller — without this the factory
         // owns the election and no one can manage it externally.
