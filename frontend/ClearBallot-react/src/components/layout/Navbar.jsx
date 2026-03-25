@@ -1,7 +1,7 @@
 import Dot from "../ui/Dot";
 import Spinner from "../ui/Spinner";
 
-export default function Navbar({ view, setView, wallet, connecting, onConnect, onDisconnect, shortAddr }) {
+export default function Navbar({ view, setView, wallet, connecting, onConnect, onDisconnect, shortAddr, onBack }) {
   return (
     <nav
       style={{
@@ -19,8 +19,23 @@ export default function Navbar({ view, setView, wallet, connecting, onConnect, o
         justifyContent: "space-between",
       }}
     >
-      {/* Logo */}
+      {/* Logo + back */}
       <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+        {onBack && (
+          <button onClick={onBack} style={{
+            background: "none", border: "none",
+            color: "var(--muted)", fontFamily: "var(--font-mono)",
+            fontSize: 12, cursor: "pointer",
+            display: "flex", alignItems: "center", gap: 4,
+            padding: "4px 8px", borderRadius: 6,
+            marginRight: 4,
+          }}
+            onMouseEnter={e => e.currentTarget.style.color = "var(--text)"}
+            onMouseLeave={e => e.currentTarget.style.color = "var(--muted)"}
+          >
+            ← Home
+          </button>
+        )}
         <svg width="28" height="28" viewBox="0 0 28 28">
           <polygon
             points="14,2 26,8 26,20 14,26 2,20 2,8"

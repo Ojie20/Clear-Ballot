@@ -30,7 +30,7 @@ function CreateModal({ onClose, onCreate, txPending }) {
         background: "var(--surface)",
         border: "1px solid var(--border)",
         borderRadius: 16, padding: 32,
-        width: "100%", maxWidth: 1000,
+        width: "100%", maxWidth: 440,
         animation: "fadeUp 0.3s ease both",
       }}>
         <div style={{
@@ -96,7 +96,7 @@ function CreateModal({ onClose, onCreate, txPending }) {
 // Main AdminInterface
 // ─────────────────────────────────────────────────────────────────────────────
 
-export default function AdminInterface() {
+export default function AdminInterface({ onBack }) {
   const { wallet, connecting, connectWallet, disconnectWallet, shortAddr } = useWallet();
 
   const {
@@ -175,10 +175,24 @@ export default function AdminInterface() {
         position: "sticky", top: 0, zIndex: 100,
         background: "rgba(4,13,26,0.9)", backdropFilter: "blur(16px)",
         borderBottom: "1px solid var(--border)",
-        padding: "0 28px", height: 60,
+        padding: "0 28px", height: 60,width: "100vw", 
         display: "flex", alignItems: "center", justifyContent: "space-between",
       }}>
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+        {onBack && (
+            <button onClick={onBack} style={{
+              background: "none", border: "none",
+              color: "var(--muted)", fontFamily: "var(--font-mono)",
+              fontSize: 12, cursor: "pointer",
+              display: "flex", alignItems: "center", gap: 4,
+              padding: "4px 8px", borderRadius: 6,
+            }}
+              onMouseEnter={e => e.currentTarget.style.color = "var(--text)"}
+              onMouseLeave={e => e.currentTarget.style.color = "var(--muted)"}
+            >
+              ← Home
+            </button>
+          )}
           <svg width="26" height="26" viewBox="0 0 28 28">
             <polygon points="14,2 26,8 26,20 14,26 2,20 2,8"
               fill="none" stroke="#b47aff" strokeWidth="1.5"/>

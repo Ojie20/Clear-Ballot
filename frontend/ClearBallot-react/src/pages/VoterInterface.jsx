@@ -26,7 +26,7 @@ function loadSecret(electionAddress, walletAddress) {
   return stored ? BigInt(stored) : null;
 }
 
-export default function VoterInterface() {
+export default function VoterInterface({ onBack }) {
   const {
     wallet, connecting, chainOk,
     connectWallet, disconnectWallet, shortAddr,
@@ -216,6 +216,7 @@ export default function VoterInterface() {
         wallet={wallet} connecting={connecting}
         onConnect={connectWallet} onDisconnect={handleDisconnect}
         shortAddr={shortAddr}
+        onBack={onBack}
       />
 
       {wallet && !chainOk && (
